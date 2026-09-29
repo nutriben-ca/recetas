@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mis Recetas">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Gestor de Recetas · Fernando</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --verde: #2D6A4F;
+  --verde-claro: #52B788;
+  --verde-palido: #D8F3DC;
+  --crema: #F8F4EE;
+  --gris: #3A3A3A;
+  --gris-claro: #9A9A9A;
+  --blanco: #FFFFFF;
+  --rosa-ig: #E1306C;
+  --sombra: rgba(45,106,79,0.10);
+  --rojo: #D62828;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+*, *::before, *::after { margin:0; padding:0; box-sizing:inherit; }
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--crema);
+  color: var(--gris);
+  min-height: 100vh;
+}
+
+/* HEADER */
+header {
+  background: var(--verde);
+  color: white;
+  padding: 1.4rem 1.5rem 1rem;
+  position: sticky; top: 0; z-index: 200;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+}
+header h1 { font-family:'Playfair Display',serif; font-size:1.4rem; }
+header p  { font-size:.72rem; opacity:.75; margin-top:.15rem; }
+.hdr-row  { display:flex; align-items:center; justify-content:space-between; gap:.8rem; }
+
+/* TABS */
+.tabs {
+  display:flex; background:var(--verde);
+  border-top:1px solid rgba(255,255,255,.15);
+}
+.tab {
+  flex:1; padding:.65rem .4rem; background:none; border:none;
+  color:rgba(255,255,255,.55); font-family:'DM Sans',sans-serif;
+  font-size:.75rem; font-weight:600; cursor:pointer;
+  border-bottom:3px solid transparent; transition:all .2s; text-align:center;
+}
+.tab.active { color:#fff; border-bottom-color:var(--verde-claro); }
+
+/* CONTENIDO */
+.content { padding:1.2rem 1.2rem 5rem; }
+
+/* BOTÓN AÑADIR */
+.fab {
+  position:fixed; bottom:calc(1.5rem + env(safe-area-inset-bottom,0px));
+  right:1.2rem; z-index:300;
+  width:54px; height:54px; border-radius:50%;
+  background:var(--verde); color:#fff; border:none;
+  font-size:1.6rem; cursor:pointer;
+  box-shadow:0 4px 16px rgba(45,106,79,.45);
+  display:flex; align-items:center; justify-content:center;
+  transition:transform .15s;
+}
+.fab:active { transform:scale(.93); }
+
+/* MODAL */
+.overlay {
+  display:none; position:fixed; inset:0; background:rgba(0,0,0,.45);
+  z-index:500; align-items:flex-end; justify-content:center;
+}
+.overlay.open { display:flex; }
+.modal {
+  background:#fff; border-radius:20px 20px 0 0;
+  width:100%; max-width:560px;
+  padding:1.4rem 1.4rem calc(1.4rem + env(safe-area-inset-bottom,0px));
+  max-height:92vh; overflow-y:auto;
+}
+.modal h2 { font-family:'Playfair Display',serif; font-size:1.15rem; color:var(--verde); margin-bottom:1rem; }
+
+/* FORMULARIO */
+.field { margin-bottom:.85rem; }
+.field label { display:block; font-size:.72rem; font-weight:600; color:var(--gris-claro); text-transform:uppercase; letter-spacing:.6px; margin-bottom:.3rem; }
+.field input, .field select, .field textarea {
+  width:100%; padding:.6rem .8rem;
+  border:1.5px solid #E0E0E0; border-radius:10px;
+  font-family:'DM Sans',sans-serif; font-size:.88rem;
+  color:var(--gris); background:#fff;
+  transition:border-color .15s;
+}
+.field input:focus, .field select:focus, .field textarea:focus {
+  outline:none; border-color:var(--verde-claro);
+}
+.field textarea { resize:vertical; min-height:80px; }
+.row2 { display:grid; grid-template-columns:1fr 1fr; gap:.7rem; }
+
+/* BOTONES FORM */
+.btn-row { display:flex; gap:.7rem; margin-top:1rem; }
+.btn { flex:1; padding:.7rem; border:none; border-radius:10px; font-family:'DM Sans',sans-serif; font-size:.88rem; font-weight:600; cursor:pointer; transition:opacity .15s; }
+.btn:active { opacity:.8; }
+.btn-primary { background:var(--verde); color:#fff; }
+.btn-cancel  { background:#F0F0F0; color:var(--gris); }
+.btn-danger  { background:var(--rojo); color:#fff; }
+
+/* TARJETAS RECETA */
+.receta-card {
+  background:#fff; border-radius:14px; margin-bottom:.85rem;
+  box-shadow:0 2px 10px var(--sombra); overflow:hidden;
+}
+.receta-head {
+  display:flex; align-items:flex-start; gap:.8rem;
+  padding:.85rem 1rem; cursor:pointer;
+}
+.receta-icon {
+  width:40px; height:40px; border-radius:10px;
+  background:var(--verde-palido); display:flex; align-items:center;
+  justify-content:center; font-size:1.2rem; flex-shrink:0;
+}
+.receta-meta { flex:1; min-width:0; }
+.receta-nombre { font-weight:600; font-size:.9rem; line-height:1.3; }
+.receta-tags  { display:flex; flex-wrap:wrap; gap:.3rem; margin-top:.3rem; }
+.tag {
+  font-size:.62rem; font-weight:600; padding:.15rem .5rem;
+  border-radius:20px; text-transform:uppercase; letter-spacing:.4px;
+}
+.tag-comida  { background:#FFF3CD; color:#856404; }
+.tag-cat     { background:var(--verde-palido); color:var(--verde); }
+.tag-ig      { background:#FCE4EC; color:var(--rosa-ig); }
+.tag-cal     { background:#E8F4F8; color:#1565C0; }
+.receta-actions { display:flex; gap:.4rem; flex-shrink:0; }
+.icon-btn {
+  width:32px; height:32px; border-radius:8px; border:none;
+  background:#F5F5F5; cursor:pointer; font-size:.9rem;
+  display:flex; align-items:center; justify-content:center;
+  transition:background .15s;
+}
+.icon-btn:hover { background:#E8E8E8; }
+.icon-btn.red:hover { background:#FFEBEE; }
+
+/* DETALLE EXPANDIBLE */
+.receta-detail {
+  display:none; padding:0 1rem 1rem;
+  border-top:1px dashed #EBEBEB;
+}
+.receta-detail.open { display:block; padding-top:.8rem; }
+.detail-section { margin-bottom:.7rem; }
+.detail-label { font-size:.68rem; font-weight:600; color:var(--gris-claro); text-transform:uppercase; letter-spacing:.5px; margin-bottom:.25rem; }
+.detail-text  { font-size:.82rem; line-height:1.5; color:var(--gris); }
+.steps-list   { list-style:none; }
+.steps-list li {
+  display:flex; gap:.6rem; margin-bottom:.4rem;
+  font-size:.8rem; line-height:1.45;
+}
+.step-num {
+  width:20px; height:20px; border-radius:50%;
+  background:var(--verde); color:#fff;
+  display:flex; align-items:center; justify-content:center;
+  font-size:.62rem; font-weight:700; flex-shrink:0; margin-top:1px;
+}
+.ig-link { color:var(--rosa-ig); font-size:.75rem; text-decoration:none; display:inline-flex; align-items:center; gap:.25rem; margin-top:.3rem; }
+
+/* FILTROS */
+.filtros {
+  display:flex; gap:.5rem; overflow-x:auto; padding-bottom:.4rem;
+  margin-bottom:1rem; scrollbar-width:none;
+}
+.filtros::-webkit-scrollbar { display:none; }
+.filtro-btn {
+  flex-shrink:0; padding:.35rem .9rem; border-radius:20px;
+  border:1.5px solid var(--verde); background:none;
+  color:var(--verde); font-family:'DM Sans',sans-serif;
+  font-size:.75rem; font-weight:600; cursor:pointer; transition:all .15s;
+}
+.filtro-btn.active, .filtro-btn:hover { background:var(--verde); color:#fff; }
+
+/* EXPORT */
+.export-card {
+  background:#fff; border-radius:14px; padding:1.2rem;
+  box-shadow:0 2px 10px var(--sombra); margin-bottom:1rem;
+}
+.export-card h3 { font-family:'Playfair Display',serif; font-size:1rem; color:var(--verde); margin-bottom:.5rem; }
+.export-card p  { font-size:.8rem; color:var(--gris-claro); line-height:1.5; margin-bottom:.8rem; }
+.export-options { display:flex; flex-direction:column; gap:.5rem; }
+.export-opt {
+  display:flex; align-items:center; gap:.7rem;
+  padding:.6rem .8rem; background:var(--crema);
+  border-radius:10px; cursor:pointer; border:none;
+  font-family:'DM Sans',sans-serif; font-size:.84rem; font-weight:500;
+  color:var(--gris); transition:background .15s; width:100%; text-align:left;
+}
+.export-opt:hover { background:var(--verde-palido); }
+.export-opt .opt-icon { font-size:1.2rem; }
+
+/* IMPORTAR IA */
+.import-box {
+  background:linear-gradient(135deg,#FCE4EC 0%,#F3E5F5 100%);
+  border-radius:14px; padding:1rem; margin-bottom:1.1rem;
+  border:1.5px dashed var(--rosa-ig);
+}
+.import-box h3 { font-size:.9rem; color:var(--rosa-ig); margin-bottom:.25rem; }
+.import-box p  { font-size:.74rem; color:#6A4A5A; line-height:1.45; margin-bottom:.7rem; }
+.upload-btn {
+  display:flex; align-items:center; justify-content:center; gap:.4rem;
+  width:100%; padding:.65rem; border-radius:10px; border:none;
+  background:#fff; color:var(--rosa-ig); font-weight:600; font-size:.85rem;
+  font-family:'DM Sans',sans-serif; cursor:pointer; margin-bottom:.5rem;
+}
+.thumbs { display:flex; gap:.4rem; flex-wrap:wrap; margin-bottom:.5rem; }
+.thumbs img { width:56px; height:56px; object-fit:cover; border-radius:8px; border:2px solid #fff; }
+.import-box textarea {
+  width:100%; min-height:60px; padding:.55rem .7rem; border-radius:10px;
+  border:1.5px solid #F0C6D6; font-family:'DM Sans',sans-serif; font-size:.8rem;
+  resize:vertical; margin-bottom:.6rem; background:#fff; color:var(--gris);
+}
+.ai-btn {
+  width:100%; padding:.7rem; border:none; border-radius:10px;
+  background:var(--rosa-ig); color:#fff; font-weight:600; font-size:.88rem;
+  font-family:'DM Sans',sans-serif; cursor:pointer;
+}
+.ai-btn:disabled { opacity:.6; cursor:wait; }
+.ai-status { font-size:.75rem; color:#6A4A5A; margin-top:.5rem; text-align:center; min-height:1em; }
+.divider { text-align:center; font-size:.7rem; color:var(--gris-claro); margin:.2rem 0 .9rem; text-transform:uppercase; letter-spacing:.6px; }
+
+/* MENU MES */
+.mes-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
+.mes-nav button { width:38px; height:38px; border-radius:50%; border:none; background:#fff; box-shadow:0 1px 6px var(--sombra); font-size:1.1rem; cursor:pointer; color:var(--verde); }
+.mes-nav h2 { font-family:'Playfair Display',serif; font-size:1.2rem; color:var(--verde); text-transform:capitalize; }
+.dia-card { background:#fff; border-radius:14px; margin-bottom:.7rem; box-shadow:0 2px 10px var(--sombra); overflow:hidden; }
+.dia-head { display:flex; align-items:center; gap:.7rem; padding:.6rem 1rem; background:var(--verde-palido); }
+.dia-num { width:32px; height:32px; border-radius:50%; background:var(--verde); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.8rem; }
+.dia-nombre { font-weight:600; font-size:.85rem; color:var(--verde); text-transform:capitalize; }
+.dia-cal { margin-left:auto; font-size:.72rem; font-weight:600; color:var(--verde); background:#fff; padding:.15rem .55rem; border-radius:20px; }
+.dia-card.hoy { outline:2.5px solid var(--verde-claro); }
+.comida { padding:.65rem 1rem; border-bottom:1px dashed #EEE; }
+.comida:last-child { border-bottom:none; }
+.comida-lbl { font-size:.62rem; text-transform:uppercase; letter-spacing:.8px; color:var(--gris-claro); font-weight:600; }
+.comida-nom { font-size:.88rem; font-weight:600; margin:.1rem 0 .15rem; }
+.ver-pasos { background:none; border:none; color:var(--verde-claro); font-weight:600; font-size:.74rem; cursor:pointer; padding:0; font-family:'DM Sans',sans-serif; }
+.pasos-box { display:none; margin-top:.5rem; }
+.pasos-box.open { display:block; }
+.pasos-box .ing { font-size:.76rem; color:var(--gris-claro); margin-bottom:.4rem; line-height:1.4; }
+.menu-actions { display:flex; gap:.5rem; margin-bottom:1rem; }
+.menu-actions button { flex:1; padding:.6rem; border-radius:10px; border:1.5px solid var(--verde); background:#fff; color:var(--verde); font-weight:600; font-size:.78rem; font-family:'DM Sans',sans-serif; cursor:pointer; }
+.menu-actions button.prim { background:var(--verde); color:#fff; }
+
+/* EMPTY */
+.empty { text-align:center; padding:3rem 1rem; color:var(--gris-claro); }
+.empty .e-icon { font-size:2.5rem; margin-bottom:.5rem; }
+.empty p { font-size:.85rem; }
+
+/* STATS */
+.stats-row { display:grid; grid-template-columns:repeat(3,1fr); gap:.6rem; margin-bottom:1rem; }
+.stat-card { background:#fff; border-radius:12px; padding:.8rem .6rem; text-align:center; box-shadow:0 1px 6px var(--sombra); }
+.stat-num  { font-family:'Playfair Display',serif; font-size:1.4rem; color:var(--verde); }
+.stat-lbl  { font-size:.65rem; color:var(--gris-claro); text-transform:uppercase; letter-spacing:.4px; }
+
+/* LOADING */
+.loading { text-align:center; padding:2rem; color:var(--gris-claro); font-size:.85rem; }
+
+/* TOAST */
+.toast {
+  position:fixed; bottom:calc(5rem + env(safe-area-inset-bottom,0px));
+  left:50%; transform:translateX(-50%) translateY(30px);
+  background:var(--gris); color:#fff; padding:.55rem 1.2rem;
+  border-radius:20px; font-size:.8rem; font-weight:500;
+  opacity:0; transition:all .25s; z-index:999; white-space:nowrap;
+  pointer-events:none;
+}
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hdr-row">
+    <div>
+      <h1>🌿 Mis Recetas</h1>
+      <p>Gestor de recetas saludables · Honduras</p>
+    </div>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab active" onclick="setTab('recetas')">📋 Recetas</button>
+  <button class="tab" onclick="setTab('menu')">📅 Menú del mes</button>
+  <button class="tab" onclick="setTab('exportar')">📤 Compartir</button>
+</div>
+
+<div class="content" id="content">
+  <div class="loading">Cargando recetas…</div>
+</div>
+
+<button class="fab" onclick="abrirModal()" id="fab" style="display:none">＋</button>
+
+<!-- MODAL AÑADIR/EDITAR -->
+<div class="overlay" id="overlay">
+  <div class="modal" id="modal">
+    <h2 id="modal-title">Nueva Receta</h2>
+
+    <div class="import-box" id="import-box" style="display:none">
+      <h3>📸 Importar desde Instagram</h3>
+      <p>Sube las capturas de la publicación (la foto y el texto con ingredientes) y/o pega el texto. La IA llena la receta por ti, adaptada a ingredientes de Honduras.</p>
+      <input type="file" id="f-imgs" accept="image/*" multiple hidden onchange="mostrarThumbs()">
+      <button class="upload-btn" type="button" onclick="document.getElementById('f-imgs').click()">🖼️ Elegir capturas</button>
+      <div class="thumbs" id="thumbs"></div>
+      <textarea id="f-texto-ig" placeholder="(Opcional) Pega aquí el texto de la publicación o el enlace…"></textarea>
+      <button class="ai-btn" id="ai-btn" type="button" onclick="importarConIA()">✨ Llenar receta con IA</button>
+      <div class="ai-status" id="ai-status"></div>
+    </div>
+    <div class="divider" id="divider-manual" style="display:none">— o escribe manualmente —</div>
+
+    <div class="field">
+      <label>Nombre del platillo *</label>
+      <input type="text" id="f-nombre" placeholder="Ej: Mexican Chicken Salad">
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label>Tipo de comida *</label>
+        <select id="f-comida">
+          <option value="almuerzo">🌞 Almuerzo</option>
+          <option value="cena">🌙 Cena</option>
+          <option value="ambos">🌞🌙 Ambos</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Calorías aprox.</label>
+        <input type="number" id="f-cal" placeholder="320" min="50" max="900">
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label>Categoría</label>
+        <select id="f-cat">
+          <option value="pollo">🍗 Pollo</option>
+          <option value="res">🥩 Res / Carne molida</option>
+          <option value="pescado">🐟 Pescado / Atún</option>
+          <option value="camarones">🦐 Camarones</option>
+          <option value="vegetariano">🥦 Vegetariano</option>
+          <option value="huevos">🥚 Huevos</option>
+          <option value="ensalada">🥗 Ensalada</option>
+          <option value="sopa">🍲 Sopa / Caldo</option>
+          <option value="otro">⭐ Otro</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Cuenta de Instagram</label>
+        <input type="text" id="f-ig" placeholder="@low.carb.love">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Ingredientes (separados por coma)</label>
+      <input type="text" id="f-ingredientes" placeholder="Pollo, pepino, yogur griego, limón…">
+    </div>
+
+    <div class="field">
+      <label>Pasos de preparación (uno por línea)</label>
+      <textarea id="f-pasos" placeholder="1. Cocine el pollo 20 min&#10;2. Desmenuce y mezcle con yogur&#10;3. Sirva frío"></textarea>
+    </div>
+
+    <div class="field">
+      <label>Notas adicionales</label>
+      <input type="text" id="f-notas" placeholder="Meal prep, sin gluten, etc.">
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-cancel" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarReceta()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const EMOJIS = { pollo:'🍗', res:'🥩', pescado:'🐟', camarones:'🦐', vegetariano:'🥦', huevos:'🥚', ensalada:'🥗', sopa:'🍲', otro:'⭐' };
+const CATS   = { pollo:'Pollo', res:'Carne/Res', pescado:'Pescado/Atún', camarones:'Camarones', vegetariano:'Vegetariano', huevos:'Huevos', ensalada:'Ensalada', sopa:'Sopa', otro:'Otro' };
+
+let db = null;
+let recetas = [];
+let filtroActivo = 'todos';
+let tabActual = 'recetas';
+let editandoId = null;
+let sample = null;
+let menus = {};
+let mesVista = mesKey(new Date());
+
+
+// ── SUPABASE ─────────────────────────────────────────────────────────────────
+const SB_URL = 'https://lzljnszgqjxxufpkcolv.supabase.co';
+const SB_KEY = 'sb_publishable_U3BePGKe_qc4uBbHuL4_OA_8jbY0iMJ';
+const deFila = f => ({ id: f.id, nombre: f.nombre, tipoComida: f.tipo_comida, calorias: f.calorias, categoria: f.categoria,
+  igCuenta: f.ig_cuenta || '', ingredientes: f.ingredientes || '', pasos: f.pasos || '', notas: f.notas || '' });
+const aFila = r => ({ nombre: r.nombre, tipo_comida: r.tipoComida, calorias: r.calorias || null, categoria: r.categoria,
+  ig_cuenta: r.igCuenta || null, ingredientes: r.ingredientes || null, pasos: r.pasos || null, notas: r.notas || null });
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+async function init() {
+  try {
+    db = supabase.createClient(SB_URL, SB_KEY);
+    await Promise.all([cargarRecetas(), cargarMenus()]);
+    db.channel('cambios')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_recetas' }, () => cargarRecetas())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_mensual' }, () => cargarMenus())
+      .subscribe();
+    document.getElementById('fab').style.display = 'flex';
+    sample = true;
+  } catch(e) {
+    showError('Error al iniciar: ' + e.message);
+  }
+}
+
+async function cargarRecetas() {
+  const { data, error } = await db.from('menu_recetas').select('*').order('creada_en', { ascending: false });
+  if (error) { showError('Error al cargar recetas: ' + error.message); return; }
+  recetas = data.map(deFila);
+  renderTab();
+}
+
+async function cargarMenus() {
+  const { data, error } = await db.from('menu_mensual').select('*');
+  if (error) { console.error(error); return; }
+  menus = {};
+  data.forEach(m => { menus[m.mes] = { dias: m.dias, intento: m.intento }; });
+  if (tabActual === 'menu') renderMenu();
+}
+
+// ── TABS ──────────────────────────────────────────────────────────────────────
+function setTab(t) {
+  tabActual = t;
+  document.querySelectorAll('.tab').forEach((el,i) => el.classList.toggle('active', ['recetas','menu','exportar'][i]===t));
+  renderTab();
+}
+
+function renderTab() {
+  if (tabActual === 'recetas') renderRecetas();
+  else if (tabActual === 'menu') renderMenu();
+  else renderExportar();
+}
+
+// ── RENDER RECETAS ────────────────────────────────────────────────────────────
+function renderRecetas() {
+  const c = document.getElementById('content');
+  const cats = [...new Set(recetas.map(r => r.categoria))];
+
+  // Stats
+  const totalCals = recetas.reduce((s,r) => s + (Number(r.calorias)||0), 0);
+  const avgCals   = recetas.length ? Math.round(totalCals / recetas.length) : 0;
+
+  let html = `
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-num">${recetas.length}</div><div class="stat-lbl">Recetas</div></div>
+      <div class="stat-card"><div class="stat-num">${recetas.filter(r=>r.igCuenta).length}</div><div class="stat-lbl">De Instagram</div></div>
+      <div class="stat-card"><div class="stat-num">~${avgCals}</div><div class="stat-lbl">Cal promedio</div></div>
+    </div>
+    <div class="filtros">
+      <button class="filtro-btn ${filtroActivo==='todos'?'active':''}" onclick="setFiltro('todos')">Todos</button>
+      <button class="filtro-btn ${filtroActivo==='almuerzo'?'active':''}" onclick="setFiltro('almuerzo')">🌞 Almuerzo</button>
+      <button class="filtro-btn ${filtroActivo==='cena'?'active':''}" onclick="setFiltro('cena')">🌙 Cena</button>
+      <button class="filtro-btn ${filtroActivo==='ig'?'active':''}" onclick="setFiltro('ig')">📸 Instagram</button>
+      ${cats.map(cat => `<button class="filtro-btn ${filtroActivo===cat?'active':''}" onclick="setFiltro('${cat}')">${EMOJIS[cat]||'⭐'} ${CATS[cat]||cat}</button>`).join('')}
+    </div>`;
+
+  const filtradas = recetas.filter(r => {
+    if (filtroActivo === 'todos') return true;
+    if (filtroActivo === 'almuerzo') return r.tipoComida === 'almuerzo' || r.tipoComida === 'ambos';
+    if (filtroActivo === 'cena')     return r.tipoComida === 'cena'     || r.tipoComida === 'ambos';
+    if (filtroActivo === 'ig')       return !!r.igCuenta;
+    return r.categoria === filtroActivo;
+  });
+
+  if (!filtradas.length) {
+    html += `<div class="empty"><div class="e-icon">🥗</div><p>${recetas.length ? 'No hay recetas con ese filtro.' : 'Todavía no hay recetas. Toca ＋ para agregar la primera.'}</p>
+      ${recetas.length ? '' : `<button class="btn btn-primary" style="margin-top:1rem;max-width:320px" onclick="cargarSemilla()">📥 Cargar las ${SEMILLA.length} recetas del menú de 30 días</button>`}</div>`;
+  } else {
+    filtradas.forEach(r => { html += tarjetaReceta(r); });
+  }
+
+  c.innerHTML = html;
+}
+
+function tarjetaReceta(r) {
+  const comidaLabel = r.tipoComida==='almuerzo'?'🌞 Almuerzo': r.tipoComida==='cena'?'🌙 Cena':'🌞🌙 Ambos';
+  const pasos = (r.pasos||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  const ingredientes = (r.ingredientes||'').split(',').map(s=>s.trim()).filter(Boolean);
+
+  return `
+  <div class="receta-card">
+    <div class="receta-head" onclick="toggleDetalle('d-${r.id}')">
+      <div class="receta-icon">${EMOJIS[r.categoria]||'⭐'}</div>
+      <div class="receta-meta">
+        <div class="receta-nombre">${r.nombre}</div>
+        <div class="receta-tags">
+          <span class="tag tag-comida">${comidaLabel}</span>
+          <span class="tag tag-cat">${CATS[r.categoria]||r.categoria}</span>
+          ${r.igCuenta ? `<span class="tag tag-ig">📸 ${r.igCuenta}</span>` : ''}
+          ${r.calorias ? `<span class="tag tag-cal">~${r.calorias} kcal</span>` : ''}
+        </div>
+      </div>
+      <div class="receta-actions" onclick="event.stopPropagation()">
+        <button class="icon-btn" onclick="editarReceta('${r.id}')" title="Editar">✏️</button>
+        <button class="icon-btn red" onclick="eliminarReceta('${r.id}')" title="Eliminar">🗑️</button>
+      </div>
+    </div>
+    <div class="receta-detail" id="d-${r.id}">
+      ${!ingredientes.length && !pasos.length ? `<div class="detail-text" style="color:#B45309;background:#FFF7E6;border-radius:8px;padding:.6rem .7rem">⚠️ Esta receta se guardó sin ingredientes ni pasos. Toca ✏️ para completarla.</div>` : ''}
+      ${ingredientes.length ? `
+        <div class="detail-section">
+          <div class="detail-label">🧺 Ingredientes</div>
+          <div class="detail-text">${ingredientes.join(' · ')}</div>
+        </div>` : ''}
+      ${pasos.length ? `
+        <div class="detail-section">
+          <div class="detail-label">👩‍🍳 Preparación</div>
+          <ol class="steps-list">
+            ${pasos.map((p,i)=>`<li><div class="step-num">${i+1}</div><span>${p}</span></li>`).join('')}
+          </ol>
+        </div>` : ''}
+      ${r.notas ? `
+        <div class="detail-section">
+          <div class="detail-label">📝 Notas</div>
+          <div class="detail-text">${r.notas}</div>
+        </div>` : ''}
+    </div>
+  </div>`;
+}
+
+function toggleDetalle(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('open');
+}
+
+function setFiltro(f) {
+  filtroActivo = f;
+  renderRecetas();
+}
+
+// ── MENÚ DEL MES ──────────────────────────────────────────────────────────────
+function mesKey(d) { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'); }
+function mesDate(k) { const [y,m] = k.split('-').map(Number); return new Date(y, m-1, 1); }
+function mesNombre(k) { return mesDate(k).toLocaleDateString('es-HN', { month:'long', year:'numeric' }); }
+function moverMes(n) { const d = mesDate(mesVista); d.setMonth(d.getMonth()+n); mesVista = mesKey(d); renderMenu(); }
+
+// barajado con semilla: cada mes da un orden distinto pero estable
+function rng(seedStr) {
+  let h = 2166136261;
+  for (const c of seedStr) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); }
+  return () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return ((h >>> 0) % 100000) / 100000; };
+}
+function barajar(arr, rand) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+
+function construirMenu(k, intento) {
+  const alm = recetas.filter(r => r.tipoComida === 'almuerzo' || r.tipoComida === 'ambos').map(r => r.id);
+  const cen = recetas.filter(r => r.tipoComida === 'cena' || r.tipoComida === 'ambos').map(r => r.id);
+  if (!alm.length || !cen.length) return null;
+  const d = mesDate(k);
+  const nDias = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+  const rand = rng(k + '#' + (intento || 0));
+  // evitar que empiece igual que el mes anterior
+  const prev = new Date(d); prev.setMonth(prev.getMonth()-1);
+  const menuPrev = menus[mesKey(prev)];
+  let A = barajar(alm, rand), C = barajar(cen, rand);
+  if (menuPrev?.dias?.[0] && A.length > 1 && A[0] === menuPrev.dias[0].a) A.push(A.shift());
+  const dias = [];
+  for (let i = 0; i < nDias; i++) {
+    let a = A[i % A.length];
+    let c = C[i % C.length];
+    if (c === a && C.length > 1) c = C[(i+1) % C.length];                   // no repetir mismo día
+    if (dias[i-1] && c === dias[i-1].c && C.length > 1) c = C[(i+2) % C.length];
+    dias.push({ a, c });
+  }
+  return dias;
+}
+
+async function generarMenu(regenerar) {
+  if (regenerar && !confirm('¿Crear un nuevo orden para ' + mesNombre(mesVista) + '? Se reemplaza el menú guardado de ese mes.')) return;
+  const intento = regenerar ? ((menus[mesVista]?.intento || 0) + 1) : 0;
+  const dias = construirMenu(mesVista, intento);
+  if (!dias) { showToast('Necesitas al menos 1 almuerzo y 1 cena guardados.'); return; }
+  try {
+    const { error } = await db.from('menu_mensual').upsert({ mes: mesVista, dias, intento, creado_en: new Date().toISOString() });
+    if (error) throw error;
+    await cargarMenus();
+    showToast('✅ Menú de ' + mesNombre(mesVista) + ' guardado');
+  } catch (e) { showToast('❌ No se pudo guardar: ' + e.message); }
+}
+
+function bloqueComida(lbl, id, key) {
+  const r = recetas.find(x => x.id === id);
+  if (!r) return `<div class="comida"><div class="comida-lbl">${lbl}</div><div class="comida-nom" style="color:var(--gris-claro)">(receta eliminada)</div></div>`;
+  const pasos = (r.pasos||'').split('\n').map(x=>x.trim()).filter(Boolean);
+  return `<div class="comida">
+    <div class="comida-lbl">${lbl}</div>
+    <div class="comida-nom">${r.nombre}</div>
+    ${r.igCuenta ? `<div style="font-size:.66rem;color:var(--rosa-ig)">📸 ${r.igCuenta}</div>` : ''}
+    <button class="ver-pasos" onclick="document.getElementById('${key}').classList.toggle('open')">👩‍🍳 Ver cómo preparar</button>
+    <div class="pasos-box" id="${key}">
+      ${r.ingredientes ? `<div class="ing">🧺 ${r.ingredientes}</div>` : ''}
+      <ol class="steps-list">${pasos.map((p,i)=>`<li><div class="step-num">${i+1}</div><span>${p}</span></li>`).join('')}</ol>
+    </div>
+  </div>`;
+}
+
+function renderMenu() {
+  const c = document.getElementById('content');
+  const m = menus[mesVista];
+  const hoy = new Date();
+  let html = `<div class="mes-nav">
+      <button onclick="moverMes(-1)">‹</button>
+      <h2>${mesNombre(mesVista)}</h2>
+      <button onclick="moverMes(1)">›</button>
+    </div>`;
+  if (!m) {
+    html += `<div class="empty"><div class="e-icon">📅</div>
+      <p>Todavía no hay menú para este mes.<br>Se arma con tus ${recetas.length} recetas en un orden distinto al del mes anterior y queda guardado.</p>
+      <button class="btn btn-primary" style="margin-top:1rem;max-width:280px" onclick="generarMenu(false)">✨ Generar menú del mes</button></div>`;
+    c.innerHTML = html; return;
+  }
+  html += `<div class="menu-actions">
+      <button class="prim" onclick="descargarMenuMes()">📤 Descargar para la cocina</button>
+      <button onclick="generarMenu(true)">🔄 Nuevo orden</button>
+    </div>`;
+  const base = mesDate(mesVista);
+  m.dias.forEach((d, i) => {
+    const fecha = new Date(base.getFullYear(), base.getMonth(), i+1);
+    const ra = recetas.find(x => x.id === d.a), rc = recetas.find(x => x.id === d.c);
+    const cal = (Number(ra?.calorias)||0) + (Number(rc?.calorias)||0);
+    const esHoy = fecha.toDateString() === hoy.toDateString();
+    html += `<div class="dia-card ${esHoy?'hoy':''}" ${esHoy?'id="dia-hoy"':''}>
+      <div class="dia-head">
+        <div class="dia-num">${i+1}</div>
+        <div class="dia-nombre">${fecha.toLocaleDateString('es-HN',{weekday:'long'})}${esHoy?' · Hoy':''}</div>
+        ${cal ? `<div class="dia-cal">~${cal} cal</div>` : ''}
+      </div>
+      ${bloqueComida('🌞 Almuerzo', d.a, 'm'+i+'a')}
+      ${bloqueComida('🌙 Cena', d.c, 'm'+i+'c')}
+    </div>`;
+  });
+  c.innerHTML = html;
+  document.getElementById('dia-hoy')?.scrollIntoView({ block:'center' });
+}
+
+// ── COMPARTIR / EXPORTAR ─────────────────────────────────────────────────────
+function renderExportar() {
+  const c = document.getElementById('content');
+  const almuerzos = recetas.filter(r=>r.tipoComida==='almuerzo'||r.tipoComida==='ambos').length;
+  const cenas     = recetas.filter(r=>r.tipoComida==='cena'||r.tipoComida==='ambos').length;
+  c.innerHTML = `
+    <div class="export-card">
+      <h3>👥 Compartir la app</h3>
+      <p>Cualquier persona con el enlace puede abrir esta app, ver el menú y subir recetas, sin cuenta. Todos ven lo mismo y los cambios aparecen al instante. <button class="btn btn-primary" style="margin-top:.6rem;width:100%" onclick="compartirLink()">🔗 Compartir enlace</button></p>
+      <p style="margin-bottom:0">Para la empleada de cocina, lo más práctico es <b>descargar el menú del mes</b> y mandárselo por WhatsApp: se abre en cualquier celular, sin cuenta.</p>
+    </div>
+    <div class="export-card">
+      <h3>📤 Descargar</h3>
+      <div class="export-options">
+        <button class="export-opt" onclick="setTab('menu')"><span class="opt-icon">📅</span><div><div style="font-weight:600">Menú del mes con recetas</div><div style="font-size:.73rem;color:var(--gris-claro)">Desde la pestaña Menú del mes</div></div></button>
+        <button class="export-opt" onclick="exportarMenu('todas')"><span class="opt-icon">🌿</span><div><div style="font-weight:600">Recetario completo (${recetas.length})</div><div style="font-size:.73rem;color:var(--gris-claro)">${almuerzos} almuerzos · ${cenas} cenas</div></div></button>
+        <button class="export-opt" onclick="exportarMenu('ig')"><span class="opt-icon">📸</span><div><div style="font-weight:600">Solo recetas de Instagram (${recetas.filter(r=>r.igCuenta).length})</div></div></button>
+      </div>
+    </div>
+    <div class="export-card">
+      <h3>📥 Recetas del menú de 30 días</h3>
+      <p>Carga las ${SEMILLA.length} recetas del menú que armamos (con sus pasos). Las que ya existan con el mismo nombre no se duplican.</p>
+      <button class="btn btn-primary" style="width:100%" onclick="cargarSemilla()">📥 Cargar recetas</button>
+    </div>`;
+}
+
+async function guardarArchivo(nombre, html) {
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const file = new File([blob], nombre, { type: 'text/html' });
+  // En celular: abre el menú Compartir (WhatsApp, etc.). En computadora: descarga.
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: nombre }); return; } catch (e) { if (e.name === 'AbortError') return; }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), { href: url, download: nombre });
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  showToast('✅ Archivo descargado');
+}
+
+function exportarMenu(filtro) {
+  let lista = recetas, titulo = 'Recetario Saludable';
+  if (filtro === 'ig') { lista = recetas.filter(r=>r.igCuenta); titulo = 'Recetas de Instagram'; }
+  if (!lista.length) { showToast('No hay recetas para exportar.'); return; }
+  guardarArchivo(`recetario-${filtro}.html`, generarHTML(lista, titulo));
+}
+
+function descargarMenuMes() {
+  const m = menus[mesVista]; if (!m) return;
+  const base = mesDate(mesVista);
+  const dias = m.dias.map((d, i) => {
+    const f = new Date(base.getFullYear(), base.getMonth(), i+1).toLocaleDateString('es-HN',{weekday:'long', day:'numeric'});
+    const nom = id => recetas.find(x=>x.id===id)?.nombre || '(eliminada)';
+    return `<tr><td style="text-transform:capitalize">${f}</td><td>${nom(d.a)}</td><td>${nom(d.c)}</td></tr>`;
+  }).join('');
+  const usadas = [...new Set(m.dias.flatMap(d => [d.a, d.c]))].map(id => recetas.find(x=>x.id===id)).filter(Boolean)
+    .sort((a,b) => a.nombre.localeCompare(b.nombre));
+  const tabla = `<div class="receta"><h3 style="margin-bottom:.6rem">📅 Calendario</h3>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.8rem">
+    <tr style="background:#D8F3DC"><th style="text-align:left;padding:.4rem">Día</th><th style="text-align:left;padding:.4rem">🌞 Almuerzo</th><th style="text-align:left;padding:.4rem">🌙 Cena</th></tr>
+    ${dias.replace(/<td/g,'<td style="padding:.4rem;border-bottom:1px solid #eee;vertical-align:top"')}</table></div></div>
+    <h2 style="font-family:Playfair Display,serif;color:#2D6A4F;margin:1.5rem 0 1rem">👩‍🍳 Recetas (en orden alfabético)</h2>`;
+  const html = generarHTML(usadas, 'Menú de ' + mesNombre(mesVista)).replace('<div class="container">', '<div class="container">' + tabla);
+  guardarArchivo(`menu-${mesVista}.html`, html);
+}
+
+async function cargarSemilla() {
+  const existentes = new Set(recetas.map(r => r.nombre.trim().toLowerCase()));
+  const nuevas = SEMILLA.filter(r => !existentes.has(r.nombre.trim().toLowerCase()));
+  if (!nuevas.length) { showToast('Ya tienes todas esas recetas.'); return; }
+  showToast('⏳ Cargando ' + nuevas.length + ' recetas…');
+  try {
+    const t = Date.now();
+    const filas = nuevas.map((r, i) => ({ ...aFila(r), creada_en: new Date(t - i * 1000).toISOString() }));
+    const { error } = await db.from('menu_recetas').insert(filas);
+    if (error) throw error;
+    await cargarRecetas();
+    showToast('✅ ' + nuevas.length + ' recetas cargadas');
+  } catch (e) { showToast('❌ Error: ' + e.message); }
+}
+
+const SEMILLA = [{"nombre": "Sopa de frijoles rojos con verduras", "tipoComida": "almuerzo", "calorias": 320, "categoria": "sopa", "igCuenta": "", "ingredientes": "Frijoles rojos, zanahoria, chayote, cilantro, tortilla de maíz", "pasos": "Remoje los frijoles desde la noche anterior. Si no, use frijoles de lata y enjuáguelos bien.\nPonga una olla a fuego medio con un chorrito de aceite. Sofría cebolla y ajo picados hasta que doren.\nAgregue los frijoles, la zanahoria en rodajas y el chayote en cubos. Cubra con agua o caldo.\nCocine a fuego medio-bajo 30 minutos hasta que los vegetales estén blandos.\nSazone con sal y pimienta. Sirva con cilantro fresco picado encima y una tortilla caliente al lado.", "notas": ""}, {"nombre": "Grilled Chicken Spring Rolls", "tipoComida": "ambos", "calorias": 280, "categoria": "pollo", "igCuenta": "@low.carb.love", "ingredientes": "Papel de arroz, pechuga a la plancha, repollo morado, zanahoria juliana, lechuga, salsa de soya light", "pasos": "Sazone la pechuga con sal, pimienta y limón. Cocínela en sartén caliente con poco aceite, 5 minutos por cada lado. Deje enfriar y córtela en tiras delgadas.\nPrepare los vegetales: corte la zanahoria en tiritas finas, pique el repollo morado fino, separe hojas de lechuga.\nMoje el papel de arroz en agua tibia por 15 segundos hasta que se ablande.\nColoque el papel en superficie plana. Ponga encima lechuga, tiras de pollo, zanahoria y repollo.\nDoble los lados del papel hacia adentro y enrolle apretado. Repita con el resto.\nSirva con salsa de soya light para mojar.", "notas": ""}, {"nombre": "Street Corn Chicken Protein Bowl", "tipoComida": "almuerzo", "calorias": 420, "categoria": "pollo", "igCuenta": "@hunt4shredz", "ingredientes": "Pollo a la plancha en cubos, arroz, maíz dulce, aguacate, salsa de yogur griego con limón y cilantro", "pasos": "Sazone la pechuga con sal, pimienta, comino y paprika. Cocínela en sartén 6 minutos por lado. Córtela en cubos.\nCocine el maíz en sartén seca hasta que tenga manchitas doradas (3-4 min).\nCocine el arroz según el paquete.\nPara la salsa: mezcle ½ taza de yogur griego, jugo de ½ limón, ajo en polvo, sal y cilantro picado.\nArme el bowl: arroz en la base, luego el pollo, el maíz, rebanadas de aguacate y bañe con la salsa.", "notas": ""}, {"nombre": "Ensalada de atún con aguacate", "tipoComida": "cena", "calorias": 280, "categoria": "pescado", "igCuenta": "", "ingredientes": "Atún en agua, aguacate, tomate, cebolla morada, limón", "pasos": "Escurra bien el atún de lata y desmenúcelo en tazón.\nPique el tomate y la cebolla morada en cuadritos. Corte el aguacate en rebanadas.\nMezcle todo. Exprima jugo de un limón encima, agregue sal y pimienta.\nSirva frío, con tostadas de maíz al lado si desea.", "notas": ""}, {"nombre": "Mexican Chicken Salad", "tipoComida": "almuerzo", "calorias": 320, "categoria": "pollo", "igCuenta": "@low.carb.love", "ingredientes": "Pollo cocido desmenuzado, pepino en cubos, yogur griego, mayo light, crema agria light, zanahoria y elote, ajo en polvo, caldo de pollo en polvo, chile al gusto", "pasos": "Cocine la pechuga en agua con sal 20 minutos hasta estar bien cocida. Deje enfriar y desmenúcela con dos tenedores.\nEn tazón grande mezcle: 2 cdas de yogur griego, 1 cda de mayo light, 1 cda de crema agria light, ½ cdita de ajo en polvo, ½ cdita de caldo de pollo en polvo, sal y pimienta.\nAgregue el pollo, pepino en cubos, zanahoria rallada y maíz. Mezcle bien.\nPruebe y añada salsa picante al gusto. Sirva frío.", "notas": ""}, {"nombre": "Sopa de verduras con huevo pochado", "tipoComida": "cena", "calorias": 250, "categoria": "sopa", "igCuenta": "", "ingredientes": "Calabacín, chayote, zanahoria, espinaca, 2 huevos pochados", "pasos": "Hierva 4 tazas de agua o caldo. Agregue zanahoria y chayote en cubos. Cocine 10 min.\nAgregue el calabacín y la espinaca. Cocine 5 minutos más. Sazone con sal y pimienta.\nPara los huevos pochados: en ollita hierva agua con un chorro de vinagre. Baje el fuego. Haga un remolino y deslice el huevo roto en el centro. Cocine 3 minutos. Repita con el otro huevo.\nSirva la sopa en plato hondo y coloque el huevo pochado encima con cuidado.", "notas": ""}, {"nombre": "Tostadas de atún con camote", "tipoComida": "almuerzo", "calorias": 350, "categoria": "pescado", "igCuenta": "", "ingredientes": "Atún en agua escurrido con limón y cebolla, tostadas de maíz, camote cocido en cubos con canela", "pasos": "Pele el camote y córtelo en cubos. Cocínelo en agua hirviendo con sal 15 minutos hasta blando. Escurra y espolvoree canela.\nEscurra el atún y mezcle con cebolla picada fina, limón, sal y pimienta.\nTueste las tortillas de maíz en comal seco hasta que estén crujientes.\nSirva el atún sobre las tostadas y el camote al lado.", "notas": ""}, {"nombre": "Wrap de pollo con vegetales", "tipoComida": "cena", "calorias": 310, "categoria": "pollo", "igCuenta": "", "ingredientes": "Tortilla integral, pollo desmenuzado, lechuga, tomate, mostaza", "pasos": "Cocine o use pollo sobrante. Desmenúcelo.\nPique lechuga en tiritas y tomate en cuadritos.\nCaliente la tortilla integral en comal 30 segundos por lado.\nUnte mostaza en la tortilla. Ponga encima el pollo, lechuga y tomate. Enrolle bien apretado.", "notas": ""}, {"nombre": "Pollo al limón con ejotes y arroz", "tipoComida": "almuerzo", "calorias": 400, "categoria": "pollo", "igCuenta": "", "ingredientes": "Pollo a la plancha marinado en limón y ajo, ejotes salteados, arroz blanco", "pasos": "Marine el pollo en jugo de limón, ajo triturado, sal y pimienta por lo menos 15 minutos.\nCocine el arroz blanco. Aparte.\nEn sartén caliente con poco aceite, cocine el pollo 6-7 minutos por lado hasta dorar. Reserve.\nEn la misma sartén saltee los ejotes con sal y pimienta 5 minutos.\nSirva el arroz, los ejotes y el pollo juntos en el plato.", "notas": ""}, {"nombre": "Watermelon Berry Mint Feta Salad", "tipoComida": "cena", "calorias": 220, "categoria": "ensalada", "igCuenta": "@low.carb.love", "ingredientes": "Sandía en cubos, arándanos, tomate cherry, pepino, queso feta light, menta fresca, limón", "pasos": "Corte la sandía en cubos medianos, sin semillas.\nMezcle en tazón grande: sandía, arándanos, tomate cherry partido a la mitad, pepino en rodajas.\nExprima jugo de limón encima, agregue sal y pimienta.\nEspolvoree el queso feta desmenuzado y las hojas de menta fresca.\nSirva de inmediato bien fría.", "notas": ""}, {"nombre": "Ceviche de tilapia con tostadas", "tipoComida": "almuerzo", "calorias": 300, "categoria": "pescado", "igCuenta": "", "ingredientes": "Tilapia cruda marinada en limón, tomate, cebolla, cilantro, chile", "pasos": "Corte la tilapia cruda en cubitos de 1 cm. Cúbralos completamente con jugo de limón. Deje reposar 20 minutos en el refrigerador hasta que la carne se vea blanca.\nPique tomate, cebolla y cilantro en cuadritos pequeños. Agregue chile al gusto.\nMezcle todo con la tilapia marinada. Sazone con sal y pimienta.\nTueste tortillas en comal seco. Sirva el ceviche encima.", "notas": ""}, {"nombre": "Huevos revueltos con espinaca y tomate", "tipoComida": "cena", "calorias": 280, "categoria": "huevos", "igCuenta": "", "ingredientes": "3 huevos, espinaca fresca, tomate, cebolla, aceite de coco", "pasos": "Caliente un chorrito de aceite de coco en sartén a fuego medio.\nSofría la cebolla hasta transparente. Agregue el tomate en cubos y cocine 2 minutos.\nAgregue la espinaca y revuelva hasta que se marchite.\nBata los huevos con sal y pimienta. Viértalos a la sartén. Revuelva suavemente hasta que estén cocidos pero cremosos.", "notas": ""}, {"nombre": "Sopa de res magra con yuca", "tipoComida": "almuerzo", "calorias": 380, "categoria": "res", "igCuenta": "", "ingredientes": "Carne de res magra, yuca, zanahoria, ayote, cilantro", "pasos": "Corte la carne en trozos medianos. Dórela en olla con poco aceite.\nCubra con agua y cocine a fuego bajo 30 minutos hasta que esté blanda.\nAgregue yuca pelada en trozos, zanahoria y ayote. Cocine 20 minutos más.\nSazone con sal, pimienta y cilantro fresco.", "notas": ""}, {"nombre": "Ensalada de garbanzos y aguacate", "tipoComida": "cena", "calorias": 290, "categoria": "ensalada", "igCuenta": "", "ingredientes": "Garbanzos, aguacate, pepino, tomate cherry, aderezo de limón", "pasos": "Escurra y enjuague los garbanzos de lata.\nCorte aguacate en cubos, pepino en rodajas, tomate cherry a la mitad.\nMezcle todo en tazón. Exprima limón, agregue aceite de oliva, sal y pimienta.\nSirva frío.", "notas": ""}, {"nombre": "Arroz integral con camarones", "tipoComida": "almuerzo", "calorias": 360, "categoria": "camarones", "igCuenta": "", "ingredientes": "Camarones frescos, arroz integral, ajo, chile morrón, cebolla", "pasos": "Cocine el arroz integral según el paquete (30-35 min con más agua que el arroz blanco).\nLimpie los camarones. Sazone con sal, pimienta y ajo.\nEn sartén caliente con poco aceite sofría cebolla y chile morrón en tiras 3 minutos. Agregue los camarones y cocine 3-4 minutos hasta que estén rosados.\nMezcle con el arroz y sirva caliente.", "notas": ""}, {"nombre": "Viral Chopped La Scala Salad", "tipoComida": "cena", "calorias": 290, "categoria": "ensalada", "igCuenta": "@low.carb.love", "ingredientes": "Lechuga romana picada fina, salami bajo en grasa, garbanzos, cebolla morada, pepinillos, aderezo italiano light, orégano", "pasos": "Pique la lechuga romana muy fina con cuchillo (que quede como tiritas delgadas). Póngala en tazón grande.\nCorte el salami en tiras o cuadritos pequeños.\nEscurra los garbanzos. Pique la cebolla morada fina. Pique los pepinillos.\nAgregue todo al tazón. Bañe con el aderezo italiano light y revuelva bien.\nEspolvoree orégano seco y pimienta negra. Sirva de inmediato.", "notas": ""}, {"nombre": "Breakfast Burritos de carne molida", "tipoComida": "almuerzo", "calorias": 390, "categoria": "res", "igCuenta": "", "ingredientes": "Carne molida 93% magra con ajo y cebolla, 1 huevo + claras revueltas, tortilla integral, lechuga, mostaza picante", "pasos": "Sofría cebolla y ajo picados en sartén. Agregue la carne molida y cocine hasta dorar (8-10 min). Sazone con sal, pimienta y comino.\nEn sartén aparte bata el huevo con las claras y cocine revolviendo suavemente.\nCaliente la tortilla integral en comal.\nPonga en la tortilla la carne, el huevo revuelto, lechuga y mostaza. Enrolle bien.", "notas": ""}, {"nombre": "Ensalada verde con huevo duro", "tipoComida": "cena", "calorias": 240, "categoria": "huevos", "igCuenta": "", "ingredientes": "Lechuga, pepino, zanahoria rallada, 2 huevos duros, vinagre", "pasos": "Hierva 2 huevos en agua 10 minutos. Enfríelos, pélelos y córtelos en cuartos.\nPique lechuga, pepino en rodajas y ralle la zanahoria.\nMezcle todo en plato. Agregue vinagre, sal y pimienta.\nColoque los huevos encima y sirva.", "notas": ""}, {"nombre": "Salpicón de res", "tipoComida": "almuerzo", "calorias": 310, "categoria": "res", "igCuenta": "", "ingredientes": "Carne de res cocida y desmenuzada, rábano, tomate, cebolla, limón", "pasos": "Cocine la carne de res en agua con sal hasta que esté muy blanda (45 min). Deje enfriar y desmenúcela.\nPique rábano, tomate y cebolla en cuadritos pequeños.\nMezcle la carne con los vegetales. Exprima mucho limón, sal y pimienta. Revuelva bien.\nSirva frío, acompañado de tortillas.", "notas": ""}, {"nombre": "Crema de frijoles negros", "tipoComida": "cena", "calorias": 270, "categoria": "sopa", "igCuenta": "", "ingredientes": "Frijoles negros, ajo, cebolla, chile dulce, cilantro, tortilla", "pasos": "Si son secos cocínelos primero. Si son de lata enjuáguelos y escúrralos, guarde un poco del agua.\nSofría cebolla y ajo en olla con poco aceite. Agregue los frijoles y chile dulce picado.\nLicúe todo con un poco de agua hasta lograr crema suave.\nRegrese a la olla, sazone y caliente. Sirva con cilantro y una tortilla al lado.", "notas": ""}, {"nombre": "Tilapia a la plancha con quinoa", "tipoComida": "almuerzo", "calorias": 340, "categoria": "pescado", "igCuenta": "", "ingredientes": "Filete de tilapia, quinoa cocida, tomate, pepino, limón", "pasos": "Lave la quinoa con agua fría. Cocínela con el doble de agua a fuego bajo 15 minutos hasta absorber todo.\nSazone la tilapia con sal, pimienta, limón y ajo. Cocínela en sartén caliente con poco aceite, 4 minutos por lado.\nMezcle la quinoa cocida con tomate y pepino en cubos, jugo de limón, sal y aceite de oliva.\nSirva la tilapia sobre la quinoa.", "notas": ""}, {"nombre": "Caldo de pollo con chayote", "tipoComida": "cena", "calorias": 220, "categoria": "sopa", "igCuenta": "", "ingredientes": "Hueso de pollo, chayote, zanahoria, apio, hierbas", "pasos": "Ponga el hueso de pollo en olla con agua fría. Hierva y descarte esa agua (quita impurezas). Lave el hueso.\nCubra de nuevo con agua limpia. Agregue chayote en cubos, zanahoria, apio y hierbas.\nCocine a fuego bajo 45 minutos. Sazone con sal.\nSirva caliente como caldo claro.", "notas": ""}, {"nombre": "Burritos light de carne molida", "tipoComida": "almuerzo", "calorias": 420, "categoria": "res", "igCuenta": "", "ingredientes": "Carne molida de res magra guisada con tomate, cebolla y comino, frijoles negros, tortilla integral, lechuga y pico de gallo", "pasos": "Sofría cebolla y ajo en sartén. Agregue la carne molida y cocine hasta dorar. Sazone con comino, sal y pimienta.\nAgregue tomate picado a la carne. Cocine 5 minutos más.\nCaliente la tortilla integral. Unte frijoles negros en la base.\nPonga encima la carne, lechuga y pico de gallo (tomate+cebolla+cilantro+limón). Enrolle.", "notas": ""}, {"nombre": "Ensalada de pepino y tomate con atún", "tipoComida": "cena", "calorias": 240, "categoria": "pescado", "igCuenta": "", "ingredientes": "Pepino, tomate, atún en agua, cebolla, limón, aceite oliva", "pasos": "Pique pepino en medias lunas, tomate en cuadritos y cebolla fina.\nEscurra el atún y agréguelo al tazón.\nBañe con jugo de limón, un chorrito de aceite de oliva, sal y pimienta. Mezcle bien.", "notas": ""}, {"nombre": "Pollo en salsa de tomate natural", "tipoComida": "almuerzo", "calorias": 370, "categoria": "pollo", "igCuenta": "", "ingredientes": "Muslo sin piel, tomate natural triturado, ajo, orégano, ejotes", "pasos": "Limpie los muslos de pollo y quíteles la piel. Sazone con sal, pimienta y ajo.\nDórelos en sartén con poco aceite 5 minutos por cada lado. Reserve.\nLicúe los tomates frescos con un poco de agua. Vierta sobre el pollo en la sartén.\nAgregue orégano y los ejotes. Tape y cocine a fuego bajo 20 minutos hasta que la salsa espese.", "notas": ""}, {"nombre": "Camote asado con ensalada verde", "tipoComida": "cena", "calorias": 240, "categoria": "ensalada", "igCuenta": "", "ingredientes": "Camote al horno con canela y aceite de coco, mix de lechuga, pepino y limón", "pasos": "Pele el camote y córtelo en rodajas. Unte ligeramente con aceite de coco, espolvoree canela y sal.\nHornee a 200°C por 25-30 minutos volteando a la mitad del tiempo.\nPique lechuga y pepino. Aderece con jugo de limón, sal y pimienta.\nSirva el camote caliente junto a la ensalada fría.", "notas": ""}, {"nombre": "Pancakes de queso cottage", "tipoComida": "cena", "calorias": 280, "categoria": "huevos", "igCuenta": "@danizafra_", "ingredientes": "2 cdas de queso cottage, 1 huevo entero, vainilla — altos en proteína, acompañados de fruta fresca", "pasos": "En licuadora ponga 2 cucharadas grandes de queso cottage, 1 huevo entero y una gotita de vainilla. Licúe hasta suave.\nCaliente una sartén antiadherente a fuego medio-bajo. No necesita aceite.\nVierta porciones pequeñas de la mezcla. Tape y cocine 2-3 minutos hasta que la superficie esté seca. Voltee y cocine 1 minuto más.\nSirva con fruta fresca picada encima.", "notas": ""}, {"nombre": "Arroz con pollo light", "tipoComida": "almuerzo", "calorias": 400, "categoria": "pollo", "igCuenta": "", "ingredientes": "Pollo sin piel, arroz blanco, zanahoria, arveja, achiote natural", "pasos": "Limpie el pollo sin piel y córtelo en trozos. Sazone con sal y pimienta. Dórelo en olla con poco aceite. Reserve.\nEn la misma olla sofría cebolla y ajo. Agregue achiote natural disuelto en un poco de agua.\nRegrese el pollo, agregue el arroz crudo, zanahoria en cubos, arveja y agua suficiente para cubrir.\nTape y cocine a fuego bajo 25 minutos hasta que el arroz esté listo y el agua absorbida.", "notas": ""}, {"nombre": "Ensalada de aguacate y tomate", "tipoComida": "cena", "calorias": 220, "categoria": "ensalada", "igCuenta": "", "ingredientes": "Aguacate, tomate, cebolla morada, cilantro, limón, sal", "pasos": "Corte el aguacate y el tomate en cubos medianos.\nPique la cebolla morada fina y el cilantro.\nMezcle todo suavemente. Exprima limón, sal y pimienta al gusto.\nSirva de inmediato para que el aguacate no se oxide.", "notas": ""}, {"nombre": "Pasta integral con atún y tomate", "tipoComida": "almuerzo", "calorias": 390, "categoria": "pescado", "igCuenta": "", "ingredientes": "Pasta integral, atún en agua, tomate natural, ajo, albahaca, aceite de oliva", "pasos": "Hierva agua con sal. Cocine la pasta integral según el paquete (10-12 min). Escurra.\nEn sartén sofría ajo en aceite de oliva. Agregue tomates frescos picados y cocine 5 minutos.\nEscurra el atún y agréguelo a la salsa. Mezcle bien.\nRevuelva con la pasta. Sirva con albahaca encima.", "notas": ""}, {"nombre": "Crema de camote con jengibre", "tipoComida": "cena", "calorias": 210, "categoria": "sopa", "igCuenta": "", "ingredientes": "Camote, jengibre fresco, caldo de pollo bajo en sodio, cebolla, ajo", "pasos": "Pele el camote y córtelo en trozos. Cocínelo en agua hasta muy blando (20 min).\nSofría cebolla y ajo en olla con poco aceite. Ralle el jengibre fresco y agréguelo.\nLicúe el camote cocido con la cebolla, jengibre y caldo de pollo hasta suave.\nRegrese a la olla, caliente y sazone con sal y pimienta.", "notas": ""}, {"nombre": "Sopa de fideo light", "tipoComida": "cena", "calorias": 240, "categoria": "sopa", "igCuenta": "", "ingredientes": "Fideos integrales, tomate, ajo, caldo bajo en sodio, epazote", "pasos": "Tueste los fideos en la olla seca a fuego medio hasta que doren (2-3 min). Revuelva seguido.\nLicúe 2 tomates con agua y cuele. Vierta sobre los fideos.\nAgregue caldo de pollo y epazote o cilantro. Cocine a fuego medio 8-10 minutos hasta listo.\nSazone con sal. Sirva caliente.", "notas": ""}, {"nombre": "Tacos de carne molida light", "tipoComida": "almuerzo", "calorias": 400, "categoria": "res", "igCuenta": "", "ingredientes": "Carne molida magra con comino, tomate y cebolla, tortillas de maíz, repollo, pico de gallo y limón", "pasos": "Sofría cebolla y ajo. Agregue la carne molida y cocine hasta dorar. Sazone con comino, sal y pimienta. Agregue tomate picado y cocine 5 min.\nPrepare el pico de gallo: tomate+cebolla+cilantro+limón+sal picados finos.\nCaliente las tortillas de maíz en comal seco.\nArme los tacos: tortilla, carne molida, repollo picado fino y pico de gallo. Exprima limón.", "notas": ""}, {"nombre": "Ensalada de atún con garbanzos", "tipoComida": "cena", "calorias": 270, "categoria": "pescado", "igCuenta": "", "ingredientes": "Atún en agua, garbanzos, pepino, tomate, cebolla morada, limón y aceite oliva", "pasos": "Escurra el atún y los garbanzos. Póngalos en tazón.\nPique pepino, tomate y cebolla morada en cuadritos.\nMezcle todo. Exprima limón, chorrito de aceite de oliva, sal y pimienta.\nSirva frío.", "notas": ""}, {"nombre": "Pollo al curry suave con arroz", "tipoComida": "almuerzo", "calorias": 410, "categoria": "pollo", "igCuenta": "", "ingredientes": "Pechuga, curry suave, leche de coco light, cebolla, arroz integral", "pasos": "Cocine el arroz integral según paquete.\nCorte la pechuga en cubos. Sazone con sal y curry en polvo.\nSofría cebolla en olla con poco aceite. Agregue el pollo y dore 5 minutos.\nVierta la lata de leche de coco light. Tape y cocine a fuego bajo 15 minutos.\nSirva sobre el arroz integral con cilantro picado encima.", "notas": ""}, {"nombre": "Camote al horno con yogur natural", "tipoComida": "cena", "calorias": 200, "categoria": "vegetariano", "igCuenta": "", "ingredientes": "Camote asado en rodajas con comino y pimentón, acompañado de yogur natural sin azúcar", "pasos": "Pele el camote y córtelo en rodajas.\nUnte con poco aceite, espolvoree comino, pimentón y sal.\nHornee a 200°C por 25 minutos, volteando a la mitad.\nSirva caliente con 2-3 cucharadas de yogur natural sin azúcar encima.", "notas": ""}, {"nombre": "Lomo de cerdo magro con vegetales", "tipoComida": "almuerzo", "calorias": 370, "categoria": "res", "igCuenta": "", "ingredientes": "Lomo magro, chayote, ejotes, zanahoria, ajo, limón", "pasos": "Corte el lomo en medallones. Marine con limón, ajo, sal y pimienta 15 minutos.\nCocine en sartén caliente con poco aceite, 4 minutos por lado hasta dorar.\nEn la misma sartén agregue chayote en cubos, ejotes y zanahoria. Saltee 5-7 minutos con sal y pimienta.\nSirva el cerdo junto a los vegetales.", "notas": ""}, {"nombre": "Sopa de tomate con huevo", "tipoComida": "cena", "calorias": 240, "categoria": "sopa", "igCuenta": "", "ingredientes": "Tomates frescos, ajo, cebolla, 2 huevos pochados, cilantro", "pasos": "Licúe los tomates frescos con ajo y un poco de agua. Cuele.\nSofría cebolla en olla, vierta la salsa de tomate y cocine 5 minutos. Agregue caldo.\nBaje el fuego. Rompa los huevos uno a uno sobre la sopa caliente. Tape y cocine 4 minutos.\nSirva con cilantro fresco picado encima.", "notas": ""}, {"nombre": "Burritos de atún y camote", "tipoComida": "almuerzo", "calorias": 400, "categoria": "pescado", "igCuenta": "", "ingredientes": "Atún en agua, camote cocido en cubos, frijoles negros, tortilla integral, lechuga, tomate y limón", "pasos": "Cocine el camote pelado en cubos en agua hirviendo 15 minutos. Escurra.\nEscurra el atún y mezcle con limón, cebolla picada, sal y pimienta.\nCaliente la tortilla integral. Unte frijoles negros en la base.\nPonga encima el atún, el camote, lechuga y tomate picado. Enrolle.", "notas": ""}, {"nombre": "Caldo de res bajo en grasa", "tipoComida": "cena", "calorias": 220, "categoria": "res", "igCuenta": "", "ingredientes": "Hueso de res desgrasado, chayote, yuca pequeña, cilantro", "pasos": "Hierva el hueso de res en agua, descarte esa agua. Lave el hueso.\nPonga de nuevo con agua limpia, chayote, yuca y cilantro. Sazone con sal.\nCocine a fuego bajo por 1 hora hasta que el caldo esté sabroso.\nRetire el hueso antes de servir. Sirva el caldo con los vegetales.", "notas": ""}, {"nombre": "Tilapia en salsa verde", "tipoComida": "almuerzo", "calorias": 310, "categoria": "pescado", "igCuenta": "", "ingredientes": "Tilapia, tomate verde, cilantro, chile dulce, cebolla, ajo", "pasos": "Licúe los tomates verdes con cilantro, chile dulce, cebolla y ajo. Reserve.\nEn sartén caliente con poco aceite, sofría la salsa verde licuada 3 minutos.\nSazone la tilapia con sal y pimienta. Agréguela a la salsa en la sartén.\nTape y cocine a fuego medio-bajo 8 minutos hasta que la tilapia esté cocida.", "notas": ""}, {"nombre": "Bowl de carne molida con camote", "tipoComida": "almuerzo", "calorias": 430, "categoria": "res", "igCuenta": "", "ingredientes": "Carne molida magra guisada con achiote, cebolla y tomate, camote en cubos asado, arroz integral y cilantro", "pasos": "Corte el camote en cubos, unte con aceite de coco y hornee a 200°C por 20 minutos volteando a la mitad.\nSofría cebolla y ajo, agregue carne molida y cocine hasta dorar. Agregue achiote disuelto en agua y tomate picado. Cocine 5 minutos.\nCocine el arroz integral.\nArme el bowl: arroz, carne molida, camote asado encima y cilantro picado.", "notas": ""}, {"nombre": "Pollo desmenuzado con arroz y frijoles", "tipoComida": "almuerzo", "calorias": 420, "categoria": "pollo", "igCuenta": "", "ingredientes": "Pechuga cocida, arroz, frijoles volteados light, ensalada", "pasos": "Cocine la pechuga en agua con sal 20 minutos. Deje enfriar y desmenúcela.\nCocine el arroz. Caliente los frijoles volteados en sartén con poco aceite.\nPrepare ensalada de lechuga y tomate con limón y sal.\nSirva todo junto: arroz, frijoles, pollo y ensalada.", "notas": ""}, {"nombre": "Crema de espinaca", "tipoComida": "cena", "calorias": 190, "categoria": "sopa", "igCuenta": "", "ingredientes": "Espinaca, ajo, cebolla, leche descremada, nuez moscada", "pasos": "Sofría cebolla y ajo en olla con poco aceite hasta dorar.\nAgregue la espinaca fresca y revuelva hasta que se marchite (2 min).\nLicúe con 1 taza de leche descremada hasta suave.\nRegrese a la olla, caliente a fuego bajo. Sazone con sal, pimienta y nuez moscada. No hierva.", "notas": ""}, {"nombre": "Camarones al ajillo con vegetales", "tipoComida": "almuerzo", "calorias": 320, "categoria": "camarones", "igCuenta": "", "ingredientes": "Camarones, ajo, aceite de oliva, ejotes, tomate cherry", "pasos": "Limpie los camarones. Pique abundante ajo.\nEn sartén caliente ponga el aceite de oliva y el ajo. Sofría 1 minuto sin quemar.\nAgregue los camarones y saltee 3-4 minutos hasta rosados.\nAgregue los ejotes y tomate cherry. Saltee 3 minutos. Sazone con sal y pimienta.", "notas": ""}, {"nombre": "Atún con camote y ensalada", "tipoComida": "cena", "calorias": 260, "categoria": "pescado", "igCuenta": "", "ingredientes": "Atún en agua con limón, camote cocido, mix de lechuga y tomate", "pasos": "Cocine el camote pelado en agua hasta blando. Córtelo en rodajas.\nEscurra el atún y sazone con limón, sal y pimienta.\nPique lechuga y tomate. Aderece con limón y sal.\nSirva el atún, el camote y la ensalada juntos.", "notas": ""}, {"nombre": "Ensalada César light", "tipoComida": "cena", "calorias": 260, "categoria": "ensalada", "igCuenta": "", "ingredientes": "Lechuga romana, pollo a la plancha, aderezo César light, limón", "pasos": "Cocine la pechuga a la plancha sazonada con sal y pimienta, 6 min por lado. Córtela en tiras.\nPique la lechuga romana en trozos medianos.\nMezcle la lechuga con el aderezo César light.\nSirva con el pollo encima y un chorrito de limón.", "notas": ""}, {"nombre": "Pollo asado con camote y ensalada", "tipoComida": "almuerzo", "calorias": 400, "categoria": "pollo", "igCuenta": "", "ingredientes": "Pollo asado sin piel, camote al horno con canela, ensalada fresca y chimol de tomate", "pasos": "Marine el pollo sin piel con sal, pimienta, ajo, limón y orégano por 30 minutos mínimo.\nAse en horno a 180°C por 35-40 minutos hasta dorado y bien cocido.\nA la vez hornee el camote en rodajas 20 min, voltee a la mitad, espolvoree canela.\nPrepare el chimol: tomate+cebolla+cilantro+limón+sal picados finos.\nSirva el pollo, camote y ensalada fresca con el chimol.", "notas": ""}, {"nombre": "Sopa de verduras final", "tipoComida": "cena", "calorias": 240, "categoria": "sopa", "igCuenta": "", "ingredientes": "Mix: zanahoria, chayote, ejotes, fideos integrales, cilantro", "pasos": "Hierva caldo de pollo en olla. Agregue zanahoria en rodajas y chayote en cubos. Cocine 10 min.\nAgregue los ejotes y los fideos integrales. Cocine 8 minutos más.\nSazone con sal, pimienta y cilantro fresco picado.", "notas": ""}];
+
+function generarHTML(lista, titulo) {
+  const fechaHoy = new Date().toLocaleDateString('es-HN', {day:'numeric', month:'long', year:'numeric'});
+
+  const tarjetas = lista.map(r => {
+    const pasos = (r.pasos||'').split('\n').map(s=>s.trim()).filter(Boolean);
+    const ingredientes = (r.ingredientes||'').split(',').map(s=>s.trim()).filter(Boolean);
+    const comidaLabel = r.tipoComida==='almuerzo'?'🌞 Almuerzo':r.tipoComida==='cena'?'🌙 Cena':'🌞🌙 Ambos';
+
+    return `
+    <div class="receta">
+      <div class="receta-top">
+        <div class="receta-emoji">${EMOJIS[r.categoria]||'⭐'}</div>
+        <div class="receta-info">
+          <h3>${r.nombre}</h3>
+          <div class="badges">
+            <span class="badge b-comida">${comidaLabel}</span>
+            <span class="badge b-cat">${CATS[r.categoria]||r.categoria}</span>
+            ${r.calorias?`<span class="badge b-cal">~${r.calorias} kcal</span>`:''}
+            ${r.igCuenta?`<span class="badge b-ig">📸 ${r.igCuenta}</span>`:''}
+          </div>
+        </div>
+      </div>
+      ${ingredientes.length?`
+        <div class="seccion">
+          <div class="seccion-label">🧺 Ingredientes</div>
+          <div class="ingredientes">${ingredientes.join(' &nbsp;·&nbsp; ')}</div>
+        </div>`:''}
+      ${pasos.length?`
+        <div class="seccion">
+          <div class="seccion-label">👩‍🍳 Preparación paso a paso</div>
+          <ol class="pasos">
+            ${pasos.map((p,i)=>`<li><span class="paso-num">${i+1}</span><span>${p}</span></li>`).join('')}
+          </ol>
+        </div>`:''}
+      ${r.notas?`
+        <div class="seccion">
+          <div class="seccion-label">📝 Notas</div>
+          <div class="nota">${r.notas}</div>
+        </div>`:''}
+    </div>`;
+  }).join('');
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${titulo}</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root { --verde:#2D6A4F; --verde-claro:#52B788; --verde-palido:#D8F3DC; --crema:#F8F4EE; --gris:#3A3A3A; --gris-claro:#9A9A9A; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'DM Sans',sans-serif; background:var(--crema); color:var(--gris); }
+  header { background:var(--verde); color:#fff; padding:2rem 1.5rem; text-align:center; }
+  header h1 { font-family:'Playfair Display',serif; font-size:1.8rem; }
+  header p  { font-size:.8rem; opacity:.8; margin-top:.3rem; }
+  .container { max-width:700px; margin:0 auto; padding:1.5rem 1rem 3rem; }
+  .receta { background:#fff; border-radius:16px; margin-bottom:1.2rem; padding:1.2rem; box-shadow:0 2px 12px rgba(45,106,79,.1); }
+  .receta-top { display:flex; align-items:flex-start; gap:.8rem; margin-bottom:.8rem; }
+  .receta-emoji { width:44px; height:44px; background:var(--verde-palido); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex-shrink:0; }
+  .receta-info h3 { font-size:1rem; font-weight:600; margin-bottom:.3rem; }
+  .badges { display:flex; flex-wrap:wrap; gap:.3rem; }
+  .badge { font-size:.62rem; font-weight:600; padding:.15rem .5rem; border-radius:20px; text-transform:uppercase; letter-spacing:.4px; }
+  .b-comida { background:#FFF3CD; color:#856404; }
+  .b-cat    { background:var(--verde-palido); color:var(--verde); }
+  .b-cal    { background:#E8F4F8; color:#1565C0; }
+  .b-ig     { background:#FCE4EC; color:#E1306C; }
+  .seccion  { margin-bottom:.8rem; padding-top:.8rem; border-top:1px dashed #EBEBEB; }
+  .seccion:first-of-type { padding-top:.8rem; }
+  .seccion-label { font-size:.68rem; font-weight:600; color:var(--gris-claro); text-transform:uppercase; letter-spacing:.5px; margin-bottom:.4rem; }
+  .ingredientes { font-size:.82rem; line-height:1.7; color:var(--gris); }
+  .pasos { list-style:none; }
+  .pasos li { display:flex; gap:.6rem; margin-bottom:.45rem; font-size:.82rem; line-height:1.45; align-items:flex-start; }
+  .paso-num { width:22px; height:22px; background:var(--verde); color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.65rem; font-weight:700; flex-shrink:0; margin-top:1px; }
+  .nota { font-size:.8rem; color:var(--gris-claro); background:var(--verde-palido); border-radius:8px; padding:.5rem .7rem; border-left:3px solid var(--verde-claro); }
+  .footer { text-align:center; color:var(--gris-claro); font-size:.72rem; margin-top:2rem; }
+  @media print { body{background:#fff} .receta{box-shadow:none;border:1px solid #E0E0E0} }
+</style>
+</head>
+<body>
+<header>
+  <h1>🌿 ${titulo}</h1>
+  <p>${lista.length} recetas · Generado el ${fechaHoy} · Honduras</p>
+</header>
+<div class="container">
+  ${tarjetas}
+  <div class="footer">Generado con Gestor de Recetas · Fernando Juárez</div>
+</div>
+</body>
+</html>`;
+}
+
+// ── MODAL ─────────────────────────────────────────────────────────────────────
+function abrirModal(datos) {
+  editandoId = datos?.id || null;
+  document.getElementById('modal-title').textContent = editandoId ? 'Editar Receta' : 'Nueva Receta';
+  document.getElementById('f-nombre').value       = datos?.nombre       || '';
+  document.getElementById('f-comida').value       = datos?.tipoComida   || 'almuerzo';
+  document.getElementById('f-cal').value          = datos?.calorias     || '';
+  document.getElementById('f-cat').value          = datos?.categoria    || 'pollo';
+  document.getElementById('f-ig').value           = datos?.igCuenta     || '';
+  document.getElementById('f-ingredientes').value = datos?.ingredientes || '';
+  document.getElementById('f-pasos').value        = datos?.pasos        || '';
+  document.getElementById('f-notas').value        = datos?.notas        || '';
+  const iaOk = !!sample && !editandoId;
+  document.getElementById('import-box').style.display = iaOk ? 'block' : 'none';
+  document.getElementById('divider-manual').style.display = iaOk ? 'block' : 'none';
+  document.getElementById('f-imgs').value = '';
+  document.getElementById('thumbs').innerHTML = '';
+  document.getElementById('f-texto-ig').value = '';
+  document.getElementById('ai-status').textContent = '';
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('f-nombre').focus();
+}
+
+function cerrarModal() {
+  document.getElementById('overlay').classList.remove('open');
+  editandoId = null;
+}
+
+async function guardarReceta() {
+  const nombre = document.getElementById('f-nombre').value.trim();
+  if (!nombre) { showToast('⚠️ El nombre es obligatorio'); return; }
+  if (!document.getElementById('f-pasos').value.trim() &&
+      !confirm('Esta receta no tiene pasos de preparación. ¿Guardarla así de todos modos?')) return;
+
+  const datos = {
+    nombre,
+    tipoComida:   document.getElementById('f-comida').value,
+    calorias:     Number(document.getElementById('f-cal').value) || 0,
+    categoria:    document.getElementById('f-cat').value,
+    igCuenta:     document.getElementById('f-ig').value.trim(),
+    ingredientes: document.getElementById('f-ingredientes').value.trim(),
+    pasos:        document.getElementById('f-pasos').value.trim(),
+    notas:        document.getElementById('f-notas').value.trim(),
+  };
+
+  try {
+    if (editandoId) {
+      const { error } = await db.from('menu_recetas').update(aFila(datos)).eq('id', editandoId);
+      if (error) throw error;
+      showToast('✅ Receta actualizada');
+    } else {
+      const { error } = await db.from('menu_recetas').insert(aFila(datos));
+      if (error) throw error;
+      showToast('✅ Receta guardada');
+    }
+    cerrarModal();
+    cargarRecetas();
+  } catch(e) {
+    showToast('❌ Error al guardar: ' + e.message);
+  }
+}
+
+function editarReceta(id) {
+  const r = recetas.find(x => x.id === id);
+  if (r) abrirModal(r);
+}
+
+async function eliminarReceta(id) {
+  const r = recetas.find(x => x.id === id);
+  if (!r) return;
+  if (!confirm(`¿Eliminar "${r.nombre}"?`)) return;
+  try {
+    const { error } = await db.from('menu_recetas').delete().eq('id', id);
+    if (error) throw error;
+    cargarRecetas();
+    showToast('🗑️ Receta eliminada');
+  } catch(e) {
+    showToast('❌ Error: ' + e.message);
+  }
+}
+
+// ── IMPORTAR CON IA (Edge Function de Supabase) ──────────────────────────────
+function mostrarThumbs() {
+  const files = [...document.getElementById('f-imgs').files];
+  if (files.length > 4) showToast('Máximo 4 capturas; se usarán las primeras.');
+  document.getElementById('thumbs').innerHTML = files.slice(0, 4)
+    .map(f => `<img src="${URL.createObjectURL(f)}" alt="">`).join('');
+}
+
+// reduce la captura a JPEG ~1600px para que suba rápido
+function comprimir(file) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      res({ type: 'image/jpeg', data: c.toDataURL('image/jpeg', 0.85).split(',')[1] });
+      URL.revokeObjectURL(img.src);
+    };
+    img.onerror = () => rej(new Error('No se pudo leer una imagen'));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+async function importarConIA() {
+  const files = [...document.getElementById('f-imgs').files].slice(0, 4);
+  const texto = document.getElementById('f-texto-ig').value.trim();
+  const status = document.getElementById('ai-status');
+  const btn = document.getElementById('ai-btn');
+  if (!files.length && !texto) { status.textContent = 'Sube al menos una captura o pega el texto.'; return; }
+
+  btn.disabled = true;
+  status.textContent = '⏳ Leyendo la receta… (puede tardar hasta un minuto)';
+  try {
+    const imagenes = await Promise.all(files.map(comprimir));
+    const resp = await fetch(SB_URL + '/functions/v1/importar-receta', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SB_KEY },
+      body: JSON.stringify({ texto, imagenes }),
+    });
+    const r = await resp.json();
+    if (!resp.ok || !r?.nombre) throw new Error(r?.error || 'No logré interpretar la receta.');
+    const cats = Object.keys(CATS);
+    document.getElementById('f-nombre').value       = r.nombre || '';
+    document.getElementById('f-comida').value       = ['almuerzo','cena','ambos'].includes(r.tipoComida) ? r.tipoComida : 'ambos';
+    document.getElementById('f-cal').value          = Number(r.calorias) || '';
+    document.getElementById('f-cat').value          = cats.includes(r.categoria) ? r.categoria : 'otro';
+    document.getElementById('f-ig').value           = r.igCuenta || '';
+    document.getElementById('f-ingredientes').value = Array.isArray(r.ingredientes) ? r.ingredientes.join(', ') : (r.ingredientes || '');
+    document.getElementById('f-pasos').value        = Array.isArray(r.pasos) ? r.pasos.join('\n') : (r.pasos || '');
+    document.getElementById('f-notas').value        = [r.notas, texto.startsWith('http') ? texto : ''].filter(Boolean).join(' · ');
+    status.textContent = '✅ ¡Listo! Revisa los datos abajo y toca Guardar.';
+  } catch (e) {
+    status.textContent = '⚠️ ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function compartirLink() {
+  const url = location.href.split('#')[0];
+  if (navigator.share) navigator.share({ title: 'Menú saludable', url }).catch(() => {});
+  else navigator.clipboard.writeText(url).then(() => showToast('🔗 Enlace copiado'));
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function showError(msg) {
+  document.getElementById('content').innerHTML = `<div class="empty"><div class="e-icon">⚠️</div><p>${msg}</p></div>`;
+}
+
+// Cerrar overlay al tocar afuera
+document.getElementById('overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('overlay')) cerrarModal();
+});
+
+init();
+</script>
+</body>
+</html>
